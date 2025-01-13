@@ -1,112 +1,32 @@
 from rest_framework import serializers
-from .models import Product, Category, Review , ProductImage
+from .models import Category, Product, Wishlist, Review
 
 class CategorySerializer(serializers.ModelSerializer):
-    children = serializers.SerializerMethodField()
-
     class Meta:
         model = Category
-        fields = ['id', 'name', 'slug', 'parent', 'description', 'is_active', 'created_at', 'updated_at', 'children']
-        extra_kwargs = {
-            'slug': {'read_only': True},
-            'created_at': {'read_only': True},
-            'updated_at': {'read_only': True},
-        }
-
-    def get_children(self, obj):
-        return CategorySerializer(obj.get_children(), many=True).data
-
-class ProductImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductImage
-        fields = ['id', 'image', 'created_at']
+        fields = ['id', 'name']
 
 class ProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
-    uploaded_images = serializers.ListField(
-        child=serializers.ImageField(allow_empty_file=False, use_url=False),
-        write_only=True,
-        required=False
+    category = CategorySerializer(read_only=True)  # Nested display of category
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), source='category', write_only=True
     )
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'category', 'stock_quantity', 'created_date', 'user', 'images', 'uploaded_images']
-        read_only_fields = ['user', 'created_date']
-
-    def create(self, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        product = Product.objects.create(**validated_data)
-        
-        for image in uploaded_images:
-            ProductImage.objects.create(product=product, image=image)
-        
-        return product
-
-    def update(self, instance, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        for image in uploaded_images:
-            ProductImage.objects.create(product=instance, image=image)
-        
-        return instance
-
-class ProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
-    uploaded_images = serializers.ListField(
-        child=serializers.ImageField(allow_empty_file=False, use_url=False),
-        write_only=True,
-        required=False
-    )
-
+        fields = ['id', 'name', 'description', 'price', 'category', 'category_id', 'stock_quantity', 'image_url', 'created_date']
+    
+class WishlistSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Product
-        fields = ['id', 'name', 'description', 'price', 'category', 'stock_quantity', 'created_date', 'user', 'images', 'uploaded_images']
-        read_only_fields = ['user', 'created_date']
-
-    def create(self, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        product = Product.objects.create(**validated_data)
-        
-        for image in uploaded_images:
-            ProductImage.objects.create(product=product, image=image)
-        
-        return product
-
-    def update(self, instance, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        for image in uploaded_images:
-            ProductImage.objects.create(product=instance, image=image)
-        
-        return instance
+        model = Wishlist
+        fields = ['id', 'user', 'product', 'added_date']
 
 class ReviewSerializer(serializers.ModelSerializer):
-    user = serializers.ReadOnlyField(source='user.username')
-    product = serializers.PrimaryKeyRelatedField(read_only=True)
-
     class Meta:
         model = Review
-        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_at']
-        read_only_fields = ['user', 'product', 'created_at']
+        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date']
 
-    def create(self, validated_data):
-        user = self.context['request'].user
-        product = Product.objects.get(pk=self.context['view'].kwargs['product_pk'])
-        
-        existing_review = Review.objects.filter(user=user, product=product).first()
-        if existing_review:
-            existing_review.rating = validated_data['rating']
-            existing_review.comment = validated_data['comment']
-            existing_review.save()
-            return existing_review
-        
-        return Review.objects.create(user=user, product=product, **validated_data)
+    def validate_rating(self, value):
+        if not 1 <= value <= 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value
