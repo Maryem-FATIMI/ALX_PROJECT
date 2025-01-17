@@ -20,8 +20,8 @@ class CategoryViewSet(ModelViewSet):
 class ProductViewSet(ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    #authentication_classes = [TokenAuthentication]
-   # permission_classes = [IsAuthenticated, UserAccess]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, UserAccess]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['category', 'stock_quantity']
     search_fields = ['name', 'category__name']  # Allow partial search by name or category
@@ -55,8 +55,8 @@ class ProductViewSet(ModelViewSet):
 class WishlistViewSet(ModelViewSet):
     queryset = Wishlist.objects.all()
     serializer_class = WishlistSerializer
-    #authentication_classes = [TokenAuthentication]
-    #permission_classes = [IsAuthenticated, UserAccess]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, UserAccess]
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
     
